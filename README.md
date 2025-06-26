@@ -33,3 +33,9 @@ make keys
 ```sh
 ./bin/validate -pub public.key -json myfile.json
 ```
+
+## Standards
+
+https://cyberphone.github.io/doc/security/jsf.html
+
+https://datatracker.ietf.org/doc/html/rfc7518
