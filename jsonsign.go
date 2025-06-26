@@ -75,7 +75,6 @@ func WithPrivateKeyFilePath(privateKeyFilePath string) func(*JsonSign) {
 
 	return func(js *JsonSign) {
 		js.PrivateKey = privateKey
-		// js.privateKeyFilePath = privateKeyFilePath
 	}
 }
 
@@ -97,11 +96,6 @@ var DsaStrings = map[DSA]string{
 	RS384: "RS384",
 	RS512: "RS512",
 	// add support for PS*, ES*, Ed*
-}
-
-type JsonSignOptions struct {
-	JsfCompliant bool
-	Algorithm    DSA
 }
 
 func JsonToHash(stableJson []byte, alg DSA) ([]byte, error) {
@@ -180,20 +174,8 @@ func ParseAlgFlag(algFlags map[DSA]*bool) (*DSA, error) {
 	return &alg, nil
 }
 
-// func DefaultJsonSignOptions() *JsonSignOptions {
-// 	x := JsonSignOptions{
-// 		JsfCompliant: true,
-// 		Algorithm:    RS256,
-// 	}
-// 	return &x
-// }
-
 // Sign the JSON file and add a signature
-// func (js *JsonSign) Sign(jsonFilePath string, options *JsonSignOptions) error {
 func (js *JsonSign) Sign(jsonFilePath string) error {
-	// if options == nil {
-	// 	options = DefaultJsonSignOptions()
-	// }
 
 	if err := validateFilePath(jsonFilePath); err != nil {
 		return fmt.Errorf("cannot validate json file path: %s", err)
@@ -259,11 +241,7 @@ func (js *JsonSign) Sign(jsonFilePath string) error {
 }
 
 // Validate the JSON file signature
-// func (js *JsonSign) Validate(jsonFilePath string, options *JsonSignOptions) error {
 func (js *JsonSign) Validate(jsonFilePath string) error {
-	// if options == nil {
-	// 	options = DefaultJsonSignOptions()
-	// }
 
 	if err := validateFilePath(jsonFilePath); err != nil {
 		return fmt.Errorf("cannot validate json file path: %s", err)

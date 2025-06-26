@@ -3,7 +3,6 @@ package jsonsign
 import (
 	"os"
 	"testing"
-	// "github.com/vaxvhbe/jsonsign"
 )
 
 const TestJsonFilePath = "./g.json"

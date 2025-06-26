@@ -45,7 +45,6 @@ func RsaKeyToPem(Key *rsa.PrivateKey) (
 		&pem.Block{
 			Type:  "PRIVATE KEY",
 			Bytes: prvBytes,
-			// Bytes: x509.MarshalPKCS1PrivateKey(Key),
 		},
 	)
 
@@ -58,7 +57,6 @@ func RsaKeyToPem(Key *rsa.PrivateKey) (
 		&pem.Block{
 			Type:  "PUBLIC KEY",
 			Bytes: pubBytes,
-			// Bytes: x509.MarshalPKCS1PublicKey(pub.(*rsa.PublicKey)),
 		},
 	)
 
