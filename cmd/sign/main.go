@@ -34,7 +34,6 @@ func main() {
 	js := jsonsign.New(
 		jsonsign.WithPrivateKeyFilePath(*privateKeyFilePath),
 	)
-	js.JsfCompliant = true
 	js.Algorithm = *alg
 
 	// Sign the JSON file

@@ -33,7 +33,6 @@ func main() {
 	js := jsonsign.New(
 		jsonsign.WithPublicKeyFilePath(*publicKeyFilePath),
 	)
-	js.JsfCompliant = true
 	js.Algorithm = *alg
 
 	// Validate the signed JSON file

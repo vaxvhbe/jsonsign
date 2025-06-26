@@ -19,17 +19,15 @@ import (
 
 // JsonSign containt keys path
 type JsonSign struct {
-	PrivateKey   *rsa.PrivateKey
-	PublicKey    *rsa.PublicKey
-	JsfCompliant bool
-	Algorithm    DSA
+	PrivateKey *rsa.PrivateKey
+	PublicKey  *rsa.PublicKey
+	Algorithm  DSA
 }
 
 // New create new instance of JsonSign
 func New(options ...func(*JsonSign)) *JsonSign {
 	js := &JsonSign{
-		JsfCompliant: true,
-		Algorithm:    RS256,
+		Algorithm: RS256,
 	}
 
 	for _, option := range options {
