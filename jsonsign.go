@@ -19,13 +19,18 @@ import (
 
 // JsonSign containt keys path
 type JsonSign struct {
-	privateKeyFilePath string
-	publicKeyFilePath  string
+	PrivateKey   *rsa.PrivateKey
+	PublicKey    *rsa.PublicKey
+	JsfCompliant bool
+	Algorithm    DSA
 }
 
 // New create new instance of JsonSign
 func New(options ...func(*JsonSign)) *JsonSign {
-	js := &JsonSign{}
+	js := &JsonSign{
+		JsfCompliant: true,
+		Algorithm:    RS256,
+	}
 
 	for _, option := range options {
 		option(js)
@@ -34,17 +39,43 @@ func New(options ...func(*JsonSign)) *JsonSign {
 	return js
 }
 
+func WithPublicKey(publicKey *rsa.PublicKey) func(*JsonSign) {
+	return func(js *JsonSign) {
+		js.PublicKey = publicKey
+	}
+}
+
 // WithPublicKeyFilePath give the public key file path
 func WithPublicKeyFilePath(publicKeyFilePath string) func(*JsonSign) {
+
+	publicKey, err := loadPublicKey(publicKeyFilePath)
+	if err != nil {
+		panic(fmt.Sprintf("cannot load public key: %s", err))
+	}
+
 	return func(js *JsonSign) {
-		js.publicKeyFilePath = publicKeyFilePath
+		js.PublicKey = publicKey
+	}
+}
+
+func WithPrivateKey(privateKey *rsa.PrivateKey) func(*JsonSign) {
+	return func(js *JsonSign) {
+		js.PrivateKey = privateKey
 	}
 }
 
 // WithPrivateKeyFilePath give the private key file path
 func WithPrivateKeyFilePath(privateKeyFilePath string) func(*JsonSign) {
+
+	// Load the private key
+	privateKey, err := loadPrivateKey(privateKeyFilePath)
+	if err != nil {
+		panic(fmt.Sprintf("cannot load private key: %s", err))
+	}
+
 	return func(js *JsonSign) {
-		js.privateKeyFilePath = privateKeyFilePath
+		js.PrivateKey = privateKey
+		// js.privateKeyFilePath = privateKeyFilePath
 	}
 }
 
@@ -149,28 +180,23 @@ func ParseAlgFlag(algFlags map[DSA]*bool) (*DSA, error) {
 	return &alg, nil
 }
 
-func DefaultJsonSignOptions() *JsonSignOptions {
-	x := JsonSignOptions{
-		JsfCompliant: true,
-		Algorithm:    RS256,
-	}
-	return &x
-}
+// func DefaultJsonSignOptions() *JsonSignOptions {
+// 	x := JsonSignOptions{
+// 		JsfCompliant: true,
+// 		Algorithm:    RS256,
+// 	}
+// 	return &x
+// }
 
 // Sign the JSON file and add a signature
-func (js *JsonSign) Sign(jsonFilePath string, options *JsonSignOptions) error {
-	if options == nil {
-		options = DefaultJsonSignOptions()
-	}
+// func (js *JsonSign) Sign(jsonFilePath string, options *JsonSignOptions) error {
+func (js *JsonSign) Sign(jsonFilePath string) error {
+	// if options == nil {
+	// 	options = DefaultJsonSignOptions()
+	// }
 
 	if err := validateFilePath(jsonFilePath); err != nil {
 		return fmt.Errorf("cannot validate json file path: %s", err)
-	}
-
-	// Load the private key
-	privateKey, err := loadPrivateKey(js.privateKeyFilePath)
-	if err != nil {
-		return fmt.Errorf("cannot load private key: %s", err)
 	}
 
 	// Read and unmarshal the JSON data
@@ -189,7 +215,7 @@ func (js *JsonSign) Sign(jsonFilePath string, options *JsonSignOptions) error {
 
 	// set signature scaffold
 	sig := map[string]interface{}{
-		"algorithm": options.Algorithm.String(),
+		"algorithm": js.Algorithm.String(),
 	}
 	jsonMap["signature"] = sig
 
@@ -200,13 +226,13 @@ func (js *JsonSign) Sign(jsonFilePath string, options *JsonSignOptions) error {
 	}
 
 	// Create a hash of the stable JSON
-	hashed, err := JsonToHash(stableJson, options.Algorithm)
+	hashed, err := JsonToHash(stableJson, js.Algorithm)
 	if err != nil {
 		return fmt.Errorf("cannot hash payload: %s", err)
 	}
 
 	// Sign the hash using RSA
-	signature, err := GenerateSignature(privateKey, hashed[:], options.Algorithm)
+	signature, err := GenerateSignature(js.PrivateKey, hashed[:], js.Algorithm)
 	if err != nil {
 		return fmt.Errorf("cannot sign json: %s", err)
 	}
@@ -233,19 +259,14 @@ func (js *JsonSign) Sign(jsonFilePath string, options *JsonSignOptions) error {
 }
 
 // Validate the JSON file signature
-func (js *JsonSign) Validate(jsonFilePath string, options *JsonSignOptions) error {
-	if options == nil {
-		options = DefaultJsonSignOptions()
-	}
+// func (js *JsonSign) Validate(jsonFilePath string, options *JsonSignOptions) error {
+func (js *JsonSign) Validate(jsonFilePath string) error {
+	// if options == nil {
+	// 	options = DefaultJsonSignOptions()
+	// }
 
 	if err := validateFilePath(jsonFilePath); err != nil {
 		return fmt.Errorf("cannot validate json file path: %s", err)
-	}
-
-	// Load the public key
-	publicKey, err := loadPublicKey(js.publicKeyFilePath)
-	if err != nil {
-		return fmt.Errorf("cannot load public key: %s", err)
 	}
 
 	// Read and unmarshal the JSON data
@@ -275,7 +296,7 @@ func (js *JsonSign) Validate(jsonFilePath string, options *JsonSignOptions) erro
 	}
 
 	// Create a hash of the stable JSON
-	hashed, err := JsonToHash(stableJson, options.Algorithm)
+	hashed, err := JsonToHash(stableJson, js.Algorithm)
 	if err != nil {
 		return fmt.Errorf("cannot hash payload: %s", err)
 	}
@@ -287,7 +308,7 @@ func (js *JsonSign) Validate(jsonFilePath string, options *JsonSignOptions) erro
 	}
 
 	// Verify the signature
-	err = VerifySignature(publicKey, hashed[:], signature, options.Algorithm)
+	err = VerifySignature(js.PublicKey, hashed[:], signature, js.Algorithm)
 	if err != nil {
 		return fmt.Errorf("invalid signature: %s", err)
 	}

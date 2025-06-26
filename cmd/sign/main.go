@@ -34,13 +34,11 @@ func main() {
 	js := jsonsign.New(
 		jsonsign.WithPrivateKeyFilePath(*privateKeyFilePath),
 	)
+	js.JsfCompliant = true
+	js.Algorithm = *alg
 
-	// Sign the JSON fileZ
-	options := jsonsign.JsonSignOptions{
-		JsfCompliant: true,
-		Algorithm:    *alg,
-	}
-	if err := js.Sign(*jsonFilePath, &options); err != nil {
+	// Sign the JSON file
+	if err := js.Sign(*jsonFilePath); err != nil {
 		fmt.Printf("cannot sign json 💥: %s\n", err)
 		os.Exit(1)
 	}

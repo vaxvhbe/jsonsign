@@ -33,13 +33,11 @@ func main() {
 	js := jsonsign.New(
 		jsonsign.WithPublicKeyFilePath(*publicKeyFilePath),
 	)
+	js.JsfCompliant = true
+	js.Algorithm = *alg
 
 	// Validate the signed JSON file
-	options := jsonsign.JsonSignOptions{
-		JsfCompliant: true,
-		Algorithm:    *alg,
-	}
-	if err := js.Validate(*jsonFilePath, &options); err != nil {
+	if err := js.Validate(*jsonFilePath); err != nil {
 		fmt.Printf("cannot validate json 💥: %s\n", err)
 		os.Exit(1)
 	}
