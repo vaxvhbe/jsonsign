@@ -10,7 +10,9 @@ The library is suitable for applications that require secure communication of JS
 
 ## Features
 
-- **Multiple Algorithms**: Supports RS256, RS384, and RS512 signature algorithms
+- **Multiple Algorithms**: Supports RSA (RS*/PS*) and ECDSA (ES*) signature algorithms
+- **RSA Algorithms**: RS256, RS384, RS512, PS256, PS384, PS512
+- **ECDSA Algorithms**: ES256, ES384, ES512 (with P-256, P-384, P-521 curves)
 - **Clean Architecture**: Well-organized codebase with separation of concerns
 - **Comprehensive Testing**: Full test coverage including cryptographic utilities
 - **Standards Compliant**: Follows JSON Signature Format (JSF) and RFC 7518
@@ -60,40 +62,73 @@ make lint       # Run linter (requires golangci-lint)
 
 ## Algorithm Support
 
-The library supports the following RSA signature algorithms:
+The library supports multiple signature algorithm families:
 
+### RSA Algorithms
 - **RS256** (default): RSASSA-PKCS1-v1_5 using SHA-256
 - **RS384**: RSASSA-PKCS1-v1_5 using SHA-384  
 - **RS512**: RSASSA-PKCS1-v1_5 using SHA-512
+- **PS256**: RSASSA-PSS using SHA-256 (more secure than RS256)
+- **PS384**: RSASSA-PSS using SHA-384
+- **PS512**: RSASSA-PSS using SHA-512
+
+### ECDSA Algorithms
+- **ES256**: ECDSA using P-256 curve and SHA-256
+- **ES384**: ECDSA using P-384 curve and SHA-384
+- **ES512**: ECDSA using P-521 curve and SHA-512
 
 ### Usage with specific algorithms
 ```sh
-# Sign with RS384
+# RSA algorithms (use RSA keys)
 ./bin/sign -priv private.key -json myfile.json -RS384
+./bin/sign -priv private.key -json myfile.json -PS256
 
-# Validate RS384 signature
-./bin/validate -pub public.key -json myfile.json -RS384
+# ECDSA algorithms (use ECDSA keys)
+./bin/sign -priv ecdsa_private.key -json myfile.json -ES256
+./bin/validate -pub ecdsa_public.key -json myfile.json -ES256
 ```
 
 ## Library Usage
 
+### RSA Keys
 ```go
 import "github.com/vaxvhbe/jsonsign"
 
-// Create signer with private key file
+// Create signer with RSA private key file
 signer := jsonsign.New(
     jsonsign.WithPrivateKeyFilePath("private.key"),
 )
+signer.Algorithm = jsonsign.PS256 // Use PSS instead of PKCS1v15
 
 // Sign a JSON file
 err := signer.Sign("document.json")
 
-// Create validator with public key file  
+// Create validator with RSA public key file  
 validator := jsonsign.New(
     jsonsign.WithPublicKeyFilePath("public.key"),
 )
+validator.Algorithm = jsonsign.PS256
 
 // Validate signature
+err = validator.Validate("document.json")
+```
+
+### ECDSA Keys
+```go
+// Create signer with ECDSA private key file
+signer := jsonsign.New(
+    jsonsign.WithECDSAPrivateKeyFilePath("ecdsa_private.key"),
+)
+signer.Algorithm = jsonsign.ES256
+
+// Create validator with ECDSA public key file
+validator := jsonsign.New(
+    jsonsign.WithECDSAPublicKeyFilePath("ecdsa_public.key"),
+)
+validator.Algorithm = jsonsign.ES256
+
+// Sign and validate
+err := signer.Sign("document.json")
 err = validator.Validate("document.json")
 ```
 

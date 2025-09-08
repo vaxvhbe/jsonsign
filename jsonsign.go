@@ -2,8 +2,7 @@ package jsonsign
 
 import (
 	"bytes"
-	"crypto"
-	"crypto/rand"
+	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/sha512"
@@ -17,11 +16,26 @@ import (
 	cryptoutil "github.com/vaxvhbe/jsonsign/internal/crypto"
 )
 
-// JsonSign containt keys path
+// JsonSign contains keys and algorithm information
+// For now, supports both RSA and ECDSA keys (but not simultaneously)
 type JsonSign struct {
+	// RSA keys (for RS*, PS* algorithms)
 	PrivateKey *rsa.PrivateKey
 	PublicKey  *rsa.PublicKey
-	Algorithm  DSA
+
+	// ECDSA keys (for ES* algorithms)
+	ECDSAPrivateKey *ecdsa.PrivateKey
+	ECDSAPublicKey  *ecdsa.PublicKey
+
+	Algorithm DSA
+}
+
+// KeyType returns the type of key currently configured
+func (js *JsonSign) KeyType() KeyType {
+	if js.ECDSAPrivateKey != nil || js.ECDSAPublicKey != nil {
+		return ECDSAKey
+	}
+	return RSAKey
 }
 
 // New create new instance of JsonSign
@@ -76,39 +90,82 @@ func WithPrivateKeyFilePath(privateKeyFilePath string) func(*JsonSign) {
 	}
 }
 
-type DSA uint
+func WithECDSAPrivateKey(privateKey *ecdsa.PrivateKey) func(*JsonSign) {
+	return func(js *JsonSign) {
+		js.ECDSAPrivateKey = privateKey
+	}
+}
 
+func WithECDSAPublicKey(publicKey *ecdsa.PublicKey) func(*JsonSign) {
+	return func(js *JsonSign) {
+		js.ECDSAPublicKey = publicKey
+	}
+}
+
+// WithECDSAPrivateKeyFilePath loads ECDSA private key from file
+func WithECDSAPrivateKeyFilePath(privateKeyFilePath string) func(*JsonSign) {
+	privateKey, err := cryptoutil.LoadECDSAPrivateKey(privateKeyFilePath)
+	if err != nil {
+		panic(fmt.Sprintf("cannot load ECDSA private key: %s", err))
+	}
+
+	return func(js *JsonSign) {
+		js.ECDSAPrivateKey = privateKey
+	}
+}
+
+// WithECDSAPublicKeyFilePath loads ECDSA public key from file
+func WithECDSAPublicKeyFilePath(publicKeyFilePath string) func(*JsonSign) {
+	publicKey, err := cryptoutil.LoadECDSAPublicKey(publicKeyFilePath)
+	if err != nil {
+		panic(fmt.Sprintf("cannot load ECDSA public key: %s", err))
+	}
+
+	return func(js *JsonSign) {
+		js.ECDSAPublicKey = publicKey
+	}
+}
+
+// Re-export types from internal/crypto for public API
+type DSA = cryptoutil.DSA
+type KeyType = cryptoutil.KeyType
+
+// Re-export constants
 const (
-	RS256 DSA = 1 + iota
-	RS384
-	RS512
-	// add support for PS*, ES*, Ed*
+	RS256   = cryptoutil.RS256
+	RS384   = cryptoutil.RS384
+	RS512   = cryptoutil.RS512
+	PS256   = cryptoutil.PS256
+	PS384   = cryptoutil.PS384
+	PS512   = cryptoutil.PS512
+	ES256   = cryptoutil.ES256
+	ES384   = cryptoutil.ES384
+	ES512   = cryptoutil.ES512
+	Ed25519 = cryptoutil.Ed25519
+
+	RSAKey     = cryptoutil.RSAKey
+	ECDSAKey   = cryptoutil.ECDSAKey
+	Ed25519Key = cryptoutil.Ed25519Key
 )
 
-func (dsa DSA) String() string {
-	return DsaStrings[dsa]
-}
-
-var DsaStrings = map[DSA]string{
-	RS256: "RS256",
-	RS384: "RS384",
-	RS512: "RS512",
-	// add support for PS*, ES*, Ed*
-}
+var DsaStrings = cryptoutil.DsaStrings
 
 func JsonToHash(stableJson []byte, alg DSA) ([]byte, error) {
 	var res []byte
 	var err error
 	switch alg {
-	case RS256:
+	case RS256, PS256, ES256:
 		tmp := sha256.Sum256(stableJson)
 		res = tmp[:]
-	case RS384:
+	case RS384, PS384, ES384:
 		tmp := sha512.Sum384(stableJson)
 		res = tmp[:]
-	case RS512:
+	case RS512, PS512, ES512:
 		tmp := sha512.Sum512(stableJson)
 		res = tmp[:]
+	case Ed25519:
+		// Ed25519 doesn't pre-hash, it signs the raw message
+		res = stableJson
 	default:
 		err = fmt.Errorf("unsupported alg: %s", alg.String())
 	}
@@ -116,34 +173,19 @@ func JsonToHash(stableJson []byte, alg DSA) ([]byte, error) {
 }
 
 func GenerateSignature(privateKey *rsa.PrivateKey, hashed []byte, alg DSA) ([]byte, error) {
-	var signature []byte
-	var err error
-	switch alg {
-	case RS256:
-		signature, err = rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA256, hashed)
-	case RS384:
-		signature, err = rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA384, hashed)
-	case RS512:
-		signature, err = rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA512, hashed)
-	default:
-		err = fmt.Errorf("unsupported alg: %s", alg.String())
-	}
-	return signature, err
+	return cryptoutil.GenerateRSASignature(privateKey, hashed, alg)
 }
 
 func VerifySignature(publicKey *rsa.PublicKey, hashed, signature []byte, alg DSA) error {
-	var err error
-	switch alg {
-	case RS256:
-		err = rsa.VerifyPKCS1v15(publicKey, crypto.SHA256, hashed, signature)
-	case RS384:
-		err = rsa.VerifyPKCS1v15(publicKey, crypto.SHA384, hashed, signature)
-	case RS512:
-		err = rsa.VerifyPKCS1v15(publicKey, crypto.SHA512, hashed, signature)
-	default:
-		err = fmt.Errorf("unsupported alg: %s", alg.String())
-	}
-	return err
+	return cryptoutil.VerifyRSASignature(publicKey, hashed, signature, alg)
+}
+
+func GenerateECDSASignature(privateKey *ecdsa.PrivateKey, hashed []byte, alg DSA) ([]byte, error) {
+	return cryptoutil.GenerateECDSASignature(privateKey, hashed, alg)
+}
+
+func VerifyECDSASignature(publicKey *ecdsa.PublicKey, hashed, signature []byte, alg DSA) error {
+	return cryptoutil.VerifyECDSASignature(publicKey, hashed, signature, alg)
 }
 
 func SetupAlgFlags() map[DSA]*bool {
@@ -211,8 +253,16 @@ func (js *JsonSign) Sign(jsonFilePath string) error {
 		return fmt.Errorf("cannot hash payload: %s", err)
 	}
 
-	// Sign the hash using RSA
-	signature, err := GenerateSignature(js.PrivateKey, hashed[:], js.Algorithm)
+	// Sign the hash using appropriate algorithm
+	var signature []byte
+	switch js.KeyType() {
+	case RSAKey:
+		signature, err = GenerateSignature(js.PrivateKey, hashed, js.Algorithm)
+	case ECDSAKey:
+		signature, err = GenerateECDSASignature(js.ECDSAPrivateKey, hashed, js.Algorithm)
+	default:
+		return fmt.Errorf("unsupported key type for algorithm %s", js.Algorithm.String())
+	}
 	if err != nil {
 		return fmt.Errorf("cannot sign json: %s", err)
 	}
@@ -283,8 +333,15 @@ func (js *JsonSign) Validate(jsonFilePath string) error {
 		return fmt.Errorf("cannot decode signature: %s", err)
 	}
 
-	// Verify the signature
-	err = VerifySignature(js.PublicKey, hashed[:], signature, js.Algorithm)
+	// Verify the signature using appropriate algorithm
+	switch js.KeyType() {
+	case RSAKey:
+		err = VerifySignature(js.PublicKey, hashed, signature, js.Algorithm)
+	case ECDSAKey:
+		err = VerifyECDSASignature(js.ECDSAPublicKey, hashed, signature, js.Algorithm)
+	default:
+		return fmt.Errorf("unsupported key type for algorithm %s", js.Algorithm.String())
+	}
 	if err != nil {
 		return fmt.Errorf("invalid signature: %s", err)
 	}

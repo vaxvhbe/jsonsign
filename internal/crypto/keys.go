@@ -2,6 +2,8 @@ package crypto
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha512"
@@ -174,4 +176,117 @@ func DecryptWithPrivateKey(
 		panic(err)
 	}
 	return plaintext
+}
+
+// ECDSA Curve type
+type ECDSACurve int
+
+const (
+	P256 ECDSACurve = iota
+	P384
+	P521
+)
+
+// GenerateECDSAKey generates an ECDSA key with the specified curve
+func GenerateECDSAKey(curve ECDSACurve) *ecdsa.PrivateKey {
+	var ellipticCurve elliptic.Curve
+
+	switch curve {
+	case P256:
+		ellipticCurve = elliptic.P256()
+	case P384:
+		ellipticCurve = elliptic.P384()
+	case P521:
+		ellipticCurve = elliptic.P521()
+	default:
+		panic("unsupported ECDSA curve")
+	}
+
+	key, err := ecdsa.GenerateKey(ellipticCurve, rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	return key
+}
+
+// ECDSAKeyToPem converts ECDSA key to PEM format
+func ECDSAKeyToPem(key *ecdsa.PrivateKey) (
+	PublicKey,
+	PrivateKey *[]byte,
+) {
+	// Encode private key to PKCS#8 ASN.1 PEM
+	prvBytes, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		panic(err)
+	}
+	keyPEM := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "PRIVATE KEY",
+			Bytes: prvBytes,
+		},
+	)
+
+	// Encode public key to PKIX ASN.1 PEM
+	pubBytes, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
+	if err != nil {
+		panic(err)
+	}
+	pubPEM := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "PUBLIC KEY",
+			Bytes: pubBytes,
+		},
+	)
+
+	return &pubPEM, &keyPEM
+}
+
+// LoadECDSAPrivateKey loads ECDSA private key from file
+func LoadECDSAPrivateKey(filename string) (*ecdsa.PrivateKey, error) {
+	privateKeyFile, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	block, _ := pem.Decode(privateKeyFile)
+	if block == nil || block.Type != "PRIVATE KEY" {
+		return nil, fmt.Errorf("invalid private key")
+	}
+
+	privateKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	ecdsaKey, ok := privateKey.(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("not an ECDSA private key")
+	}
+
+	return ecdsaKey, nil
+}
+
+// LoadECDSAPublicKey loads ECDSA public key from file
+func LoadECDSAPublicKey(filename string) (*ecdsa.PublicKey, error) {
+	publicKeyFile, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	block, _ := pem.Decode(publicKeyFile)
+	if block == nil || block.Type != "PUBLIC KEY" {
+		return nil, fmt.Errorf("invalid public key")
+	}
+
+	publicKey, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	ecdsaKey, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("not an ECDSA public key")
+	}
+
+	return ecdsaKey, nil
 }
