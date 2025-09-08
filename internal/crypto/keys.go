@@ -1,4 +1,4 @@
-package jsonsign
+package crypto
 
 import (
 	"bytes"
@@ -8,7 +8,9 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"math/big"
+	"os"
 	"time"
 )
 
@@ -61,6 +63,46 @@ func RsaKeyToPem(Key *rsa.PrivateKey) (
 	)
 
 	return &pubPEM, &keyPEM
+}
+
+// LoadPrivateKey load private key from file
+func LoadPrivateKey(filename string) (*rsa.PrivateKey, error) {
+	privateKeyFile, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	block, _ := pem.Decode(privateKeyFile)
+	if block == nil || block.Type != "PRIVATE KEY" {
+		return nil, fmt.Errorf("invalid private key")
+	}
+
+	privateKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return privateKey.(*rsa.PrivateKey), nil
+}
+
+// LoadPublicKey load public key from file
+func LoadPublicKey(filename string) (*rsa.PublicKey, error) {
+	publicKeyFile, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	block, _ := pem.Decode(publicKeyFile)
+	if block == nil || block.Type != "PUBLIC KEY" {
+		return nil, fmt.Errorf("invalid public key")
+	}
+
+	publicKey, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return publicKey.(*rsa.PublicKey), nil
 }
 
 func NewX509CertificateTemplate(

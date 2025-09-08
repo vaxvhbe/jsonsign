@@ -7,14 +7,14 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/sha512"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"flag"
 	"fmt"
 	"os"
 	"sort"
+
+	cryptoutil "github.com/vaxvhbe/jsonsign/internal/crypto"
 )
 
 // JsonSign containt keys path
@@ -46,7 +46,7 @@ func WithPublicKey(publicKey *rsa.PublicKey) func(*JsonSign) {
 // WithPublicKeyFilePath give the public key file path
 func WithPublicKeyFilePath(publicKeyFilePath string) func(*JsonSign) {
 
-	publicKey, err := loadPublicKey(publicKeyFilePath)
+	publicKey, err := cryptoutil.LoadPublicKey(publicKeyFilePath)
 	if err != nil {
 		panic(fmt.Sprintf("cannot load public key: %s", err))
 	}
@@ -66,7 +66,7 @@ func WithPrivateKey(privateKey *rsa.PrivateKey) func(*JsonSign) {
 func WithPrivateKeyFilePath(privateKeyFilePath string) func(*JsonSign) {
 
 	// Load the private key
-	privateKey, err := loadPrivateKey(privateKeyFilePath)
+	privateKey, err := cryptoutil.LoadPrivateKey(privateKeyFilePath)
 	if err != nil {
 		panic(fmt.Sprintf("cannot load private key: %s", err))
 	}
@@ -321,46 +321,6 @@ func toStableJson(jsonMap map[string]interface{}) ([]byte, error) {
 	buffer.WriteString("}")
 
 	return buffer.Bytes(), nil
-}
-
-// loadPrivateKey load private key from file
-func loadPrivateKey(filename string) (*rsa.PrivateKey, error) {
-	privateKeyFile, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	block, _ := pem.Decode(privateKeyFile)
-	if block == nil || block.Type != "PRIVATE KEY" {
-		return nil, fmt.Errorf("invalid private key")
-	}
-
-	privateKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-	if err != nil {
-		return nil, err
-	}
-
-	return privateKey.(*rsa.PrivateKey), nil
-}
-
-// loadPublicKey load public key from file
-func loadPublicKey(filename string) (*rsa.PublicKey, error) {
-	publicKeyFile, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	block, _ := pem.Decode(publicKeyFile)
-	if block == nil || block.Type != "PUBLIC KEY" {
-		return nil, fmt.Errorf("invalid public key")
-	}
-
-	publicKey, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		return nil, err
-	}
-
-	return publicKey.(*rsa.PublicKey), nil
 }
 
 // validateFilePath validate file path

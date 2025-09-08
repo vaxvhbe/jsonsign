@@ -3,9 +3,11 @@ package jsonsign
 import (
 	"os"
 	"testing"
+
+	cryptoutil "github.com/vaxvhbe/jsonsign/internal/crypto"
 )
 
-const TestJsonFilePath = "./g.json"
+const TestJsonFilePath = "./testdata/sample.json"
 
 func SignAndVerifyAll(
 	Signer,
@@ -26,7 +28,7 @@ func SignAndVerifyAll(
 
 func TestSVFromBytes(t *testing.T) {
 
-	key := GenerateRsaKey(Rsa2048)
+	key := cryptoutil.GenerateRsaKey(cryptoutil.Rsa2048)
 	Signer := New(
 		WithPrivateKey(key),
 	)
@@ -40,8 +42,8 @@ func TestSVFromBytes(t *testing.T) {
 
 func TestSVFromPath(t *testing.T) {
 
-	key := GenerateRsaKey(Rsa2048)
-	pubPem, prvPem := RsaKeyToPem(key)
+	key := cryptoutil.GenerateRsaKey(cryptoutil.Rsa2048)
+	pubPem, prvPem := cryptoutil.RsaKeyToPem(key)
 
 	pubF, err := os.CreateTemp("", "pub.key")
 	if err != nil {
