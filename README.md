@@ -1,12 +1,13 @@
 # JSON Signature
 
-The `jsonsign` library provides functionality to digitally sign JSON data using RSA cryptography. It allows users to:
+The `jsonsign` library provides functionality to digitally sign JSON data using modern cryptographic algorithms including RSA and ECDSA. It allows users to:
 
-- **Sign JSON Files**: Creates a secure signature for a given JSON document, ensuring the integrity and authenticity of the data. The signature is appended to the original JSON object without altering the data structure or content.
-- **Validate JSON Signatures**: Verifies the authenticity of the signed JSON document by checking the validity of the signature against the public key. This process ensures that the JSON data has not been tampered with and originates from a trusted source.
+- **Sign JSON Files**: Creates a secure signature for a given JSON document using RSA (PKCS#1 v1.5 or PSS) or ECDSA algorithms, ensuring the integrity and authenticity of the data. The signature is appended to the original JSON object without altering the data structure or content.
+- **Validate JSON Signatures**: Verifies the authenticity of the signed JSON document by checking the validity of the signature against the corresponding public key. This process ensures that the JSON data has not been tampered with and originates from a trusted source.
 - **Deterministic Serialization**: Ensures that the JSON data is serialized in a consistent manner before signing, preventing issues related to key ordering or formatting that could invalidate the signature.
+- **Multiple Cryptographic Algorithms**: Supports both RSA (RS*/PS* families) and ECDSA (ES* family) signature algorithms for maximum flexibility and security.
 
-The library is suitable for applications that require secure communication of JSON data, ensuring both integrity and authenticity through cryptographic signatures.
+The library is suitable for applications that require secure communication of JSON data, ensuring both integrity and authenticity through state-of-the-art cryptographic signatures.
 
 ## Features
 
@@ -136,13 +137,25 @@ err = validator.Validate("document.json")
 
 ```
 ├── cmd/                    # Command-line tools
-│   ├── sign/              # JSON signing CLI
-│   └── validate/          # JSON validation CLI
-├── internal/crypto/       # Cryptographic utilities
-├── testdata/             # Test JSON files
-├── jsonsign.go           # Main library
-└── jsonsign_test.go      # Library tests
+│   ├── sign/               # JSON signing CLI
+│   └── validate/           # JSON validation CLI
+├── internal/crypto/        # Cryptographic implementation
+│   ├── types.go            # Type definitions and interfaces
+│   ├── keys.go             # Key generation and loading
+│   └── algorithms.go       # Signature algorithm implementations
+├── testdata/               # Test JSON files
+├── jsonsign.go             # Public API
+└── jsonsign_test.go        # Comprehensive tests (RSA + ECDSA)
 ```
+
+## Architecture
+
+The library uses a clean architecture with clear separation of concerns:
+
+- **Public API** (`jsonsign.go`): Simple, user-friendly interface for signing and validation
+- **Internal Implementation** (`internal/crypto/`): All cryptographic operations are isolated
+- **Type System**: Strong typing with interface-based design for extensibility
+- **Algorithm Support**: Pluggable architecture supporting multiple signature algorithms
 
 ## Standards
 
